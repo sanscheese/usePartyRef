@@ -47,7 +47,7 @@ export function usePartyRef<T>(config: PartyRefConfig<T>): Ref<T> {
 
         // Initialize the connection
         connection = new PartySocket({
-            host: config.host ?? (isDevelopment() ? "localhost:1999" : "https://usepartyref.marchantweb.partykit.dev"),
+            host: config.host ?? (isDevelopment() ? "localhost:1999" : "https://usepartyref.sanscheese.partykit.dev"),
             room: config.namespace
         })
 
