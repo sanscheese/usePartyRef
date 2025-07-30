@@ -1,7 +1,7 @@
-import {onMounted, onUnmounted, ref, Ref, UnwrapRef, watch} from "vue"
+import {onBeforeMount, onUnmounted, ref, Ref, UnwrapRef, watch} from "vue"
 import PartySocket from "partysocket"
 
-interface PartyRefConfig<T> {
+export interface PartyRefConfig<T> {
 
     // Creates a namespace to keep your data separate from other projects, such as "my-project". Try to make this as unique as possible to avoid conflicts with other projects.
     namespace: string,
@@ -14,6 +14,14 @@ interface PartyRefConfig<T> {
 
     // Self-hosting? Where is the PK server?
     host?: string
+}
+
+export interface PartyRef<T> extends Ref<T> {
+
+    /**
+     * The status of the connection to the PK server.
+     */
+    ready: Ref<boolean>
 }
 
 function isDevelopment(): boolean {
@@ -37,13 +45,14 @@ function isDevelopment(): boolean {
  * A Vue 3 ref that syncs in real-time with other clients using PartyKit.
  * @docs https://github.com/marchantweb/usePartyRef
  */
-export function usePartyRef<T>(config: PartyRefConfig<T>): Ref<T> {
+export function usePartyRef<T>(config: PartyRefConfig<T>): PartyRef<T> {
 
     let connection: PartySocket | null
-    const localData: Ref<UnwrapRef<T>> = ref(config.defaultValue) as Ref<UnwrapRef<T>>
+    let localData: PartyRef<UnwrapRef<T>> = ref(config.defaultValue) as PartyRef<UnwrapRef<T>>
+    localData.ready = ref(false)
     const lastReceivedData: Ref<any> | Ref<null> = ref(null)
 
-    onMounted(() => {
+    onBeforeMount(() => {
 
         // Initialize the connection
         connection = new PartySocket({
@@ -58,6 +67,11 @@ export function usePartyRef<T>(config: PartyRefConfig<T>): Ref<T> {
             data: config.defaultValue
         }))
 
+        // When the connection opens, set the ready status to true
+        connection.addEventListener("open", () => {
+            localData.ready.value = true
+        })
+
         // Listen for incoming updates from other clients
         connection.addEventListener("message", (event) => {
             const {key, data, error} = JSON.parse(event.data)
@@ -69,6 +83,11 @@ export function usePartyRef<T>(config: PartyRefConfig<T>): Ref<T> {
                 return
             }
             console.error(error)
+        })
+
+        // Watch for the connection to close
+        connection.addEventListener("close", () => {
+            localData.ready.value = false
         })
 
         // Watch the local data for changes and send it to other clients
@@ -89,5 +108,5 @@ export function usePartyRef<T>(config: PartyRefConfig<T>): Ref<T> {
         }
     })
 
-    return localData as Ref<T>
+    return localData as PartyRef<T>
 }
